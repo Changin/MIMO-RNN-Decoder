@@ -122,7 +122,7 @@ for snr_value in dB_snr:
 
 # **************** 모델 정의 - 창인 ******************
 # 하이퍼 파라미터 정의
-input_size = x_seq.size(2)
+input_size = x_train.size(1)
 num_layers = 1
 hidden_size = 8
 
