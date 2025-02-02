@@ -1,11 +1,10 @@
 # rnn.py
-# 패키지 필요 시 추가 & 공유하기
 from torch.utils.data import TensorDataset, DataLoader
 import torch
 import pandas as pd
 import matplotlib.pyplot as plt
+import torch.optim as optim
 import numpy as np
-
 
 # *************** 데이터 불러오기 - 규태 ***************
 train_x_file = pd.read_csv('train_x_bit_QPSK_L3_dec_fin_save.csv').to_numpy()
@@ -17,7 +16,7 @@ train_Y_file  = pd.read_csv('train_Y_QPSK_L3_ReIm_2X2_save.csv').to_numpy()
 test_Y_file  = pd.read_csv('test_Y_QPSK_L3_ReIm_2X2_save.csv').to_numpy()
 
 # *************** 데이터 전처리 - 수현 ****************
-'''
+
 train_ReIm = pd.read_csv("train_Y_QPSK_L3_ReIm_2X2_save.csv", header=None ).to_numpy()
 test_ReIm = pd.read_csv("test_Y_QPSK_L3_ReIm_2X2_save.csv", header=None ).to_numpy()
 
@@ -26,7 +25,7 @@ test_qpsk = pd.read_csv("test_x_bit_QPSK_L3_dec_fin_save.csv", header=None ).to_
 
 train_bit = pd.read_csv("train_x_bit_QPSK_L3_2X2_save.csv", header=None ).to_numpy()
 test_bit = pd.read_csv("test_x_bit_QPSK_L3_2X2_save.csv", header=None ).to_numpy()
-'''
+
 BATSIZE = 800
 
 # 학습 데이터 변환
@@ -41,8 +40,7 @@ for i in range(train_ReIm.shape[0] - 2):
 x_train = torch.Tensor(x_train).float()
 
 # y
-y_train = torch.Tensor(train_qpsk).long()
-y_train = y_train.flatten()
+y_train = torch.Tensor(train_qpsk).long().flatten()
 
 # bit
 bit_train = []
@@ -53,7 +51,7 @@ for i in range(train_bit.shape[0]):
 
 bit_train = torch.Tensor(bit_train).long()
 
-# dataset / dataloader
+# Dataset 및 DataLoader 생성 (전체 DataLoader는 SNR별 슬라이싱을 위해 사용하지 않음)
 train_dataset = TensorDataset(x_train, y_train, bit_train)
 train_loader = DataLoader(dataset=train_dataset, batch_size=BATSIZE, shuffle=True)
 
@@ -69,8 +67,7 @@ for i in range(test_ReIm.shape[0] - 2):
 x_test = torch.Tensor(x_test).float()
 
 # y
-y_test = torch.Tensor(test_qpsk).long()
-y_test = y_test.flatten()
+y_test = torch.Tensor(test_qpsk).long().flatten()
 
 # bit
 bit_test = []
@@ -81,7 +78,7 @@ for i in range(test_bit.shape[0]):
 
 bit_test = torch.Tensor(bit_test).long()
 
-# dataset / dataloader
+# Dataset 및 DataLoader 생성 (전체 DataLoader는 SNR별 슬라이싱을 위해 사용하지 않음)
 test_dataset = TensorDataset(x_test, y_test, bit_test)
 test_loader = DataLoader(dataset=test_dataset, batch_size=BATSIZE, shuffle=False)
 
@@ -118,34 +115,92 @@ for snr_value in dB_snr:
 '''
 
 # **************** 모델 정의 - 창인 ******************
-# 하이퍼 파라미터 정의
-# input_size = x_train.size(1)
-input_size = 1      # 한 타임에 들어가는 입력의 갯수(변수) (1개) -> 나중에 4로 변경 필요 (x1 실수/허수, x2 실수/허수)
-num_layers = 1      # LSTM 스택 갯수 (1)
-hidden_size = 8     # hidden state h의 차원 수
-sequence_length = 12    # 시퀀스 길이 (총 12개 (3개의 시간))   -> 나중에 3으로 변경 필요 (3개의 시간)
-# 즉 수정 후에는 [배치크기, sequence_length, input_size] 크기의 텐서를 입력해야 함
+input_size = 1
+num_layers = 2          # 학습 성능 개선 위해 1 -> 2로 수정
+hidden_size = 64        # 학습 성능 개선 위해 8 -> 64로 수정
+sequence_length = 12
 
 
 class LSTM(torch.nn.Module):
     def __init__(self, input_size, hidden_size, sequence_length, num_layers, device):
         super(LSTM, self).__init__()
-        self.device = device  # 학습할 때 GPU 활용하기 위해 device 넣어주세요
+        self.device = device
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.lstm = torch.nn.LSTM(input_size, hidden_size, num_layers)
-        self.fc = torch.nn.Linear(hidden_size * sequence_length, 16)  # 16개 (0~15 심볼) 최종출력 반환
+        self.sequence_length = sequence_length
+        self.lstm = torch.nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.fc = torch.nn.Linear(hidden_size * sequence_length, 16) # 16개 (0~15 심볼) 최종출력 반환
 
     def forward(self, x):
-        h0 = torch.zeros(self.num_layers, x.size()[0], self.hidden_size).to(self.device)  # 초기 hidden_state 설정
-        c0 = torch.zeros(self.num_layers, x.size()[0], self.hidden_size).to(self.device)  # 기억셀 cell state 초기화
+        x = x.unsqueeze(-1)  # 학습 시에 차원 문제로 수정(unsqueeze로 차원 추가)
+        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(self.device)
+        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(self.device)
         out, _ = self.lstm(x, (h0, c0))
         out = out.reshape(out.shape[0], -1)
         out = self.fc(out)
         return out
 
-
 # ************** 학습 - 채원 ***************
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def symbol_to_bits(symbol, bit_length=4):
+    return [int(x) for x in format(symbol, f'0{bit_length}b')]
+
+def calculate_bit_error_rate(predictions, ground_truth, bit_length=4):
+    pred_symbols = predictions.cpu().numpy()
+    true_symbols = ground_truth.cpu().numpy()
+    total_bit_errors = 0
+    total_bits = len(pred_symbols) * bit_length
+    for pred_sym, true_sym in zip(pred_symbols, true_symbols):
+        pred_bits = symbol_to_bits(pred_sym, bit_length)
+        true_bits = symbol_to_bits(true_sym, bit_length)
+        total_bit_errors += sum(p != t for p, t in zip(pred_bits, true_bits))
+    return total_bit_errors / total_bits
+
+# SNR별 학습/테스트
+dB_snr = [0, 2, 4, 6, 8, 10, 12, 14, 16]
+num_epochs = 8
+learning_rate = 0.001
+criterion = torch.nn.CrossEntropyLoss()
+
+models = {}
+
+print("========== SNR별 학습 시작 ==========")
+for snr_value in dB_snr:
+    print(f"\n--- SNR = {snr_value} dB ---")
+    train_loader_snr = get_snr_dataloader(x_train, y_train, bit_train, snr_value, BATSIZE, shuffle=True)
+
+    model_snr = LSTM(input_size, hidden_size, sequence_length, num_layers, device).to(device)
+    optimizer_snr = torch.optim.Adam(model_snr.parameters(), lr=learning_rate)
+
+    for epoch in range(num_epochs):
+        model_snr.train()
+        total_loss = 0.0
+        for batch_idx, (x_batch, y_batch, bit_batch) in enumerate(train_loader_snr):
+            x_batch, y_batch, bit_batch = x_batch.to(device), y_batch.to(device), bit_batch.to(device)
+            optimizer_snr.zero_grad()
+            output = model_snr(x_batch)
+            loss = criterion(output, y_batch)
+            loss.backward()
+            optimizer_snr.step()
+            total_loss += loss.item()
+        print(f"SNR {snr_value} dB, Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss/len(train_loader_snr):.4f}")
+    models[snr_value] = model_snr
+
+print("\n========== SNR별 테스트 시작 ==========")
+for snr_value in dB_snr:
+    test_loader_snr = get_snr_dataloader(x_test, y_test, bit_test, snr_value, BATSIZE, shuffle=False)
+    model_snr = models[snr_value]
+    model_snr.eval()
+    snr_ber_list = []
+    with torch.no_grad():
+        for batch_idx, (x_batch, y_batch, bit_batch) in enumerate(test_loader_snr):
+            x_batch, y_batch, bit_batch = x_batch.to(device), y_batch.to(device), bit_batch.to(device)
+            output = model_snr(x_batch)
+            predictions = torch.argmax(output, dim=1)
+            ber = calculate_bit_error_rate(predictions, y_batch, bit_length=4)  # BER 계산
+            snr_ber_list.append(ber)
+    avg_ber = sum(snr_ber_list) / len(snr_ber_list)
+    print(f"Test SNR {snr_value} dB, Average BER: {avg_ber:.6f}")
 
 # ************* 그래프 출력 & 성능 평가 - 민지 *************
