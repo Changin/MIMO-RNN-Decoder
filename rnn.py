@@ -143,6 +143,18 @@ class LSTM(torch.nn.Module):
 # ************** 학습 - 채원 ***************
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def get_snr_subset(x, y, bit, snr_value):
+    offset = int(snr_value / 2)  # 예: SNR=0dB -> offset 0, SNR=2dB -> offset 1, 등등
+    indices = list(range(offset, x.shape[0], 16))
+    return x[indices], y[indices], bit[indices]
+
+def get_snr_dataloader(x, y, bit, snr_value, batch_size, shuffle=False):
+    x_subset, y_subset, bit_subset = get_snr_subset(x, y, bit, snr_value)
+    dataset = TensorDataset(x_subset, y_subset, bit_subset)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+    return loader
+
 def symbol_to_bits(symbol, bit_length=4):
     return [int(x) for x in format(symbol, f'0{bit_length}b')]
 
