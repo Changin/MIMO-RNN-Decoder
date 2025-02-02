@@ -200,6 +200,8 @@ for snr_value in dB_snr:
     models[snr_value] = model_snr
 
 print("\n========== SNR별 테스트 시작 ==========")
+avg_ber_list=[]  # 그래프 출력을 위해 ber 값을 저장 하기 위해 추가
+
 for snr_value in dB_snr:
     test_loader_snr = get_snr_dataloader(x_test, y_test, bit_test, snr_value, BATSIZE, shuffle=False)
     model_snr = models[snr_value]
@@ -213,6 +215,17 @@ for snr_value in dB_snr:
             ber = calculate_bit_error_rate(predictions, y_batch, bit_length=4)  # BER 계산
             snr_ber_list.append(ber)
     avg_ber = sum(snr_ber_list) / len(snr_ber_list)
+    avg_ber_list.append(avg_ber)    # 그래프 출력을 위해 ber 값을 저장 하기 위해 추가
     print(f"Test SNR {snr_value} dB, Average BER: {avg_ber:.6f}")
 
 # ************* 그래프 출력 & 성능 평가 - 민지 *************
+
+# ber 그래프
+plt.semilogy(dB_snr, avg_ber_list, marker='o', color='orange', label='Simulated')
+plt.xticks(dB_snr)
+plt.title('Bit Error Rate Performance Over Varying SNR')
+plt.xlabel('SNR (dB)')
+plt.ylabel('Bit Error Rate (BER)')
+plt.grid(True, which="both", linestyle='--', linewidth=0.5)
+plt.legend()
+plt.show()
