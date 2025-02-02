@@ -115,10 +115,12 @@ for snr_value in dB_snr:
 '''
 
 # **************** 모델 정의 - 창인 ******************
-input_size = 1
+# input_size = 1
+input_size = 4
 num_layers = 2          # 학습 성능 개선 위해 1 -> 2로 수정
 hidden_size = 64        # 학습 성능 개선 위해 8 -> 64로 수정
-sequence_length = 12
+# sequence_length = 12
+sequence_length = 3
 
 
 class LSTM(torch.nn.Module):
