@@ -134,7 +134,7 @@ class LSTM(torch.nn.Module):
         self.fc = torch.nn.Linear(hidden_size * sequence_length, 16) # 16개 (0~15 심볼) 최종출력 반환
 
     def forward(self, x):
-        x = x.unsqueeze(-1)  # 학습 시에 차원 문제로 수정(unsqueeze로 차원 추가)
+        # x = x.unsqueeze(-1)  # 학습 시에 차원 문제로 수정(unsqueeze로 차원 추가)
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(self.device)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(self.device)
         out, _ = self.lstm(x, (h0, c0))
