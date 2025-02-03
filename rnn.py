@@ -125,10 +125,12 @@ for snr_value in dB_snr:
 """
 
 # **************** 모델 정의 - 창인 ******************
-input_size = 1
+# input_size = 1
+input_size = 4
 num_layers = 2          # 학습 성능 개선 위해 1 -> 2로 수정
 hidden_size = 64        # 학습 성능 개선 위해 8 -> 64로 수정
-sequence_length = 12
+# sequence_length = 12
+sequence_length = 3
 
 
 class LSTM(torch.nn.Module):
@@ -142,7 +144,7 @@ class LSTM(torch.nn.Module):
         self.fc = torch.nn.Linear(hidden_size * sequence_length, 16) # 16개 (0~15 심볼) 최종출력 반환
 
     def forward(self, x):
-        x = x.unsqueeze(-1)  # 학습 시에 차원 문제로 수정(unsqueeze로 차원 추가)
+        # x = x.unsqueeze(-1)  # 학습 시에 차원 문제로 수정(unsqueeze로 차원 추가)
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(self.device)
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(self.device)
         out, _ = self.lstm(x, (h0, c0))
