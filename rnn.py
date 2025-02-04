@@ -7,17 +7,17 @@ import torch.optim as optim
 import numpy as np
 
 # *************** 데이터 불러오기 - 규태 ***************
-'''
-train_x_file = pd.read_csv('train_x_bit_QPSK_L3_dec_fin_save.csv').to_numpy()
-test_x_file  = pd.read_csv('test_x_bit_QPSK_L3_dec_fin_save.csv').to_numpy()
-train_x_r1_file = pd.read_csv('train_x_bit_QPSK_L3_2X2_save.csv').to_numpy()
-test_x_r1_file = pd.read_csv('test_x_bit_QPSK_L3_2X2_save.csv').to_numpy()
+train_qpsk = pd.read_csv("train_x_bit_QPSK_L3_dec_fin_save.csv", header=None ).to_numpy()
+test_qpsk = pd.read_csv("test_x_bit_QPSK_L3_dec_fin_save.csv", header=None ).to_numpy()
 
-train_Y_file  = pd.read_csv('train_Y_QPSK_L3_ReIm_2X2_save.csv').to_numpy()
-test_Y_file  = pd.read_csv('test_Y_QPSK_L3_ReIm_2X2_save.csv').to_numpy()
-'''
+train_bit = pd.read_csv("train_x_bit_QPSK_L3_2X2_save.csv", header=None ).to_numpy()
+test_bit = pd.read_csv("test_x_bit_QPSK_L3_2X2_save.csv", header=None ).to_numpy()
+
+train_ReIm = pd.read_csv("train_Y_QPSK_L3_ReIm_2X2_save.csv", header=None ).to_numpy()
+test_ReIm = pd.read_csv("test_Y_QPSK_L3_ReIm_2X2_save.csv", header=None ).to_numpy()
 
 # *************** 데이터 전처리 - 수현 ****************
+'''
 train_ReIm = pd.read_csv("train_Y_QPSK_L3_ReIm_2X2_save.csv", header=None ).to_numpy()
 test_ReIm = pd.read_csv("test_Y_QPSK_L3_ReIm_2X2_save.csv", header=None ).to_numpy()
 
@@ -26,6 +26,7 @@ test_qpsk = pd.read_csv("test_x_bit_QPSK_L3_dec_fin_save.csv", header=None ).to_
 
 train_bit = pd.read_csv("train_x_bit_QPSK_L3_2X2_save.csv", header=None ).to_numpy()
 test_bit = pd.read_csv("test_x_bit_QPSK_L3_2X2_save.csv", header=None ).to_numpy()
+'''
 BATSIZE = 800
 
 # 학습 데이터 변환
