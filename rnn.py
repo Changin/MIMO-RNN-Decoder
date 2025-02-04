@@ -7,6 +7,7 @@ import torch.optim as optim
 import numpy as np
 
 # *************** 데이터 불러오기 - 규태 ***************
+'''
 train_x_file = pd.read_csv('train_x_bit_QPSK_L3_dec_fin_save.csv').to_numpy()
 test_x_file  = pd.read_csv('test_x_bit_QPSK_L3_dec_fin_save.csv').to_numpy()
 train_x_r1_file = pd.read_csv('train_x_bit_QPSK_L3_2X2_save.csv').to_numpy()
@@ -14,6 +15,7 @@ test_x_r1_file = pd.read_csv('test_x_bit_QPSK_L3_2X2_save.csv').to_numpy()
 
 train_Y_file  = pd.read_csv('train_Y_QPSK_L3_ReIm_2X2_save.csv').to_numpy()
 test_Y_file  = pd.read_csv('test_Y_QPSK_L3_ReIm_2X2_save.csv').to_numpy()
+'''
 
 # *************** 데이터 전처리 - 수현 ****************
 train_ReIm = pd.read_csv("train_Y_QPSK_L3_ReIm_2X2_save.csv", header=None ).to_numpy()
@@ -141,7 +143,12 @@ class LSTM(torch.nn.Module):
         self.num_layers = num_layers
         self.sequence_length = sequence_length
         self.lstm = torch.nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
-        self.fc = torch.nn.Linear(hidden_size * sequence_length, 16) # 16개 (0~15 심볼) 최종출력 반환
+        self.fc1 = torch.nn.Linear(hidden_size * sequence_length, 256)
+        self.fc2 = torch.nn.Linear(256, 128)
+        self.fc3 = torch.nn.Linear(128, 64)
+        self.fc4 = torch.nn.Linear(64,32)
+        self.fc = torch.nn.Linear(32, 16) # 16개 (0~15 심볼) 최종출력 반환
+        self.relu = torch.nn.ReLU()
 
     def forward(self, x):
         # x = x.unsqueeze(-1)  # 학습 시에 차원 문제로 수정(unsqueeze로 차원 추가)
@@ -149,6 +156,10 @@ class LSTM(torch.nn.Module):
         c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(self.device)
         out, _ = self.lstm(x, (h0, c0))
         out = out.reshape(out.shape[0], -1)
+        out = self.relu(self.fc1(out))
+        out = self.relu(self.fc2(out))
+        out = self.relu(self.fc3(out))
+        out = self.relu(self.fc4(out))
         out = self.fc(out)
         return out
 
@@ -183,7 +194,7 @@ def calculate_bit_error_rate(predictions, ground_truth, bit_length=4):
 
 # SNR별 학습/테스트
 dB_snr = [0, 2, 4, 6, 8, 10, 12, 14, 16]
-num_epochs = 8
+num_epochs = 10
 learning_rate = 0.001
 criterion = torch.nn.CrossEntropyLoss()
 
