@@ -231,9 +231,14 @@ for snr_value in dB_snr:
     print(f"Test SNR {snr_value} dB, Average BER: {avg_ber:.6f}")
 
 # ************* 그래프 출력 & 성능 평가 - 민지 *************
+# 비교성능.xlsx 데이터 추가
+Comparison = pd.read_excel("비교성능.xlsx", header=None )
+perfect_channel_list = Comparison.iloc[1, 1:]    # perfect_channel 데이터
+perfect_channel_snr = Comparison.iloc[0, 1:]     # perfect_channel 데이터 해당 SNR
 
 # ber 그래프
-plt.semilogy(dB_snr, avg_ber_list, marker='o', color='orange', label='Simulated')
+plt.semilogy(dB_snr, avg_ber_list, marker='o', color='orange', label='LSTM')
+plt.semilogy(perfect_channel_snr, perfect_channel_list, marker='x', color='blue', label='perfect_channel')    # 비교성능.xlsx의 BER_perfect_channel 그래프 추가
 plt.xticks(dB_snr)
 plt.title('Bit Error Rate Performance Over Varying SNR')
 plt.xlabel('SNR (dB)')
