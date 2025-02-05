@@ -166,7 +166,13 @@ class LSTM(torch.nn.Module):
 
 # ************** 학습 - 채원 ***************
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = ''
+if torch.cuda.is_available():
+    print("==========CUDA ACTIVATED============")
+    print(torch.cuda.get_device_name(0))
+    device = "cuda"
+else:
+    device = "cpu"
 
 def get_snr_subset(x, y, bit, snr_value):
     offset = int(snr_value / 2)  # 예: SNR=0dB -> offset 0, SNR=2dB -> offset 1, 등등
@@ -193,53 +199,48 @@ def calculate_bit_error_rate(predictions, ground_truth, bit_length=4):
         total_bit_errors += sum(p != t for p, t in zip(pred_bits, true_bits))
     return total_bit_errors / total_bits
 
-# SNR별 학습/테스트
-dB_snr = [0, 2, 4, 6, 8, 10, 12, 14, 16]
-num_epochs = 10
+# SNR 16dB만 학습
+train_snr = 16
+train_loader_snr = get_snr_dataloader(x_train, y_train, bit_train, train_snr, BATSIZE, shuffle=True)
+
+num_epochs = 40
 learning_rate = 0.001
 criterion = torch.nn.CrossEntropyLoss()
 
-models = {}
+print(f"\n========== SNR = {train_snr} dB에서 학습 시작 ==========")
+model = LSTM(input_size, hidden_size, sequence_length, num_layers, device).to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-print("========== SNR별 학습 시작 ==========")
-for snr_value in dB_snr:
-    print(f"\n--- SNR = {snr_value} dB ---")
-    train_loader_snr = get_snr_dataloader(x_train, y_train, bit_train, snr_value, BATSIZE, shuffle=True)
-
-    model_snr = LSTM(input_size, hidden_size, sequence_length, num_layers, device).to(device)
-    optimizer_snr = torch.optim.Adam(model_snr.parameters(), lr=learning_rate)
-
-    for epoch in range(num_epochs):
-        model_snr.train()
-        total_loss = 0.0
-        for batch_idx, (x_batch, y_batch, bit_batch) in enumerate(train_loader_snr):
-            x_batch, y_batch, bit_batch = x_batch.to(device), y_batch.to(device), bit_batch.to(device)
-            optimizer_snr.zero_grad()
-            output = model_snr(x_batch)
-            loss = criterion(output, y_batch)
-            loss.backward()
-            optimizer_snr.step()
-            total_loss += loss.item()
-        print(f"SNR {snr_value} dB, Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss/len(train_loader_snr):.4f}")
-    models[snr_value] = model_snr
+for epoch in range(num_epochs):
+    model.train()
+    total_loss = 0.0
+    for batch_idx, (x_batch, y_batch, bit_batch) in enumerate(train_loader_snr):
+        x_batch, y_batch, bit_batch = x_batch.to(device), y_batch.to(device), bit_batch.to(device)
+        optimizer.zero_grad()
+        output = model(x_batch)
+        loss = criterion(output, y_batch)
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {total_loss/len(train_loader_snr):.4f}")
 
 print("\n========== SNR별 테스트 시작 ==========")
-avg_ber_list=[]  # 그래프 출력을 위해 ber 값을 저장 하기 위해 추가
+dB_snr = [0, 2, 4, 6, 8, 10, 12, 14, 16]
+avg_ber_list = []
 
 for snr_value in dB_snr:
     test_loader_snr = get_snr_dataloader(x_test, y_test, bit_test, snr_value, BATSIZE, shuffle=False)
-    model_snr = models[snr_value]
-    model_snr.eval()
+    model.eval()
     snr_ber_list = []
     with torch.no_grad():
         for batch_idx, (x_batch, y_batch, bit_batch) in enumerate(test_loader_snr):
             x_batch, y_batch, bit_batch = x_batch.to(device), y_batch.to(device), bit_batch.to(device)
-            output = model_snr(x_batch)
+            output = model(x_batch)
             predictions = torch.argmax(output, dim=1)
-            ber = calculate_bit_error_rate(predictions, y_batch, bit_length=4)  # BER 계산
+            ber = calculate_bit_error_rate(predictions, y_batch, bit_length=4)
             snr_ber_list.append(ber)
     avg_ber = sum(snr_ber_list) / len(snr_ber_list)
-    avg_ber_list.append(avg_ber)    # 그래프 출력을 위해 ber 값을 저장 하기 위해 추가
+    avg_ber_list.append(avg_ber)
     print(f"Test SNR {snr_value} dB, Average BER: {avg_ber:.6f}")
 
 # ************* 그래프 출력 & 성능 평가 - 민지 *************
