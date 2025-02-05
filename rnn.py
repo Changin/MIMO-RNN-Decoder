@@ -166,7 +166,13 @@ class LSTM(torch.nn.Module):
 
 # ************** 학습 - 채원 ***************
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = ''
+if torch.cuda.is_available():
+    print("==========CUDA ACTIVATED============")
+    print(torch.cuda.get_device_name(0))
+    device = "cuda"
+else:
+    device = "cpu"
 
 def get_snr_subset(x, y, bit, snr_value):
     offset = int(snr_value / 2)  # 예: SNR=0dB -> offset 0, SNR=2dB -> offset 1, 등등
@@ -197,7 +203,7 @@ def calculate_bit_error_rate(predictions, ground_truth, bit_length=4):
 train_snr = 16
 train_loader_snr = get_snr_dataloader(x_train, y_train, bit_train, train_snr, BATSIZE, shuffle=True)
 
-num_epochs = 10
+num_epochs = 40
 learning_rate = 0.001
 criterion = torch.nn.CrossEntropyLoss()
 
